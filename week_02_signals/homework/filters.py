@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def conv_nested(image, kernel):
     """A naive implementation of convolution filter.
 
@@ -20,7 +19,14 @@ def conv_nested(image, kernel):
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
+
+    for i in range(0, Hi):
+        for j in range(0, Wi):
+            for m in range(0, Hk):
+                for n in range(0, Wk):
+                    if Hi > i - m + Hk//2 >= 0 and Wi > j - n + Wk//2 >= 0:
+                        out[i, j] += image[i - (m - Hk//2), j - (n - Wk//2)] * kernel[m, n]
+
     ### END YOUR CODE
 
     return out
@@ -44,11 +50,14 @@ def zero_pad(image, pad_height, pad_width):
     """
 
     H, W = image.shape
-    out = np.zeros_like(image)
+    out = np.zeros((H + 2 * pad_height, W + 2 * pad_width))
 
     ### YOUR CODE HERE
-    pass
+
+    out[pad_height: -pad_height, pad_width: -pad_width] = image
+
     ### END YOUR CODE
+
     return out
 
 
@@ -76,7 +85,14 @@ def conv_fast(image, kernel):
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
+
+    padded_img = zero_pad(image, Hk//2, Wk//2)
+    kernel = np.flip(kernel)
+    for i in range(Hk//2, Hi + Hk//2):
+        for j in range(Wk//2, Wi + Wk//2):
+            i_begin, j_begin = i - (Hk//2), j - (Wk//2)
+            out[i - Hk//2, j - Wk//2] = np.sum(padded_img[i_begin: i_begin + Hk, j_begin: j_begin + Wk] * kernel)
+
     ### END YOUR CODE
 
     return out
@@ -95,7 +111,14 @@ def conv_faster(image, kernel):
     out = np.zeros((Hi, Wi))
 
     ### YOUR CODE HERE
-    pass
+    
+    # Solution uses Convolution Theorem
+    padded_image = zero_pad(image, Hk//2, Wk//2)
+    Fi = np.fft.rfft2(padded_image)
+    Fk = np.fft.rfft2(kernel, padded_image.shape)
+#     out = np.around(np.real(np.fft.ifft2(np.fft.fft2(padded_image) * np.fft.fft2(kernel, padded_image.shape))), 10)
+    out = np.fft.irfft2(Fi * Fk)[(Hk + 1)//2:, (Wk + 1)//2:]
+
     ### END YOUR CODE
 
     return out
@@ -114,12 +137,17 @@ def cross_correlation(f, g):
     """
 
     out = np.zeros_like(f)
+    
     ### YOUR CODE HERE
-    pass
+    
+    out = conv_fast(f, np.flip(g))
+    
     ### END YOUR CODE
 
     return out
 
+
+#NOTE: Since cross_correlation is not normalized to 1, optimal threshold value was found to be ~1100 
 def zero_mean_cross_correlation(f, g):
     """ Zero-mean cross-correlation of f and g.
 
@@ -136,8 +164,12 @@ def zero_mean_cross_correlation(f, g):
     """
 
     out = np.zeros_like(f)
+    
     ### YOUR CODE HERE
-    pass
+    
+    g = g - np.mean(g)
+    out = cross_correlation(f, g)
+    
     ### END YOUR CODE
 
     return out
@@ -159,9 +191,22 @@ def normalized_cross_correlation(f, g):
         out: numpy array of shape (Hf, Wf).
     """
 
-    out = np.zeros_like(f)
     ### YOUR CODE HERE
-    pass
+
+    Hi, Wi = f.shape
+    Hk, Wk = g.shape
+    out = np.zeros((Hi, Wi))
+
+
+    padded_f = zero_pad(f, Hk//2, Wk//2)
+    g_normalized = (g - np.mean(g))/np.std(g)
+    for i in range(Hk//2, Hi + Hk//2):
+        for j in range(Wk//2, Wi + Wk//2):
+            i_begin, j_begin = i - (Hk//2), j - (Wk//2)
+            padded_slice = padded_f[i_begin: i_begin + Hk, j_begin: j_begin + Wk]
+            padded_normalized = (padded_slice - np.mean(padded_slice))/np.std(padded_slice)
+            out[i - Hk//2, j - Wk//2] = np.sum(padded_normalized * g_normalized)
+            
     ### END YOUR CODE
 
     return out
